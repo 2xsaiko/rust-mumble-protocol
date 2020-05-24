@@ -9,8 +9,7 @@ use std::fmt::Debug;
 use std::io;
 use std::io::{Cursor, Read};
 use std::marker::PhantomData;
-use tokio_util::codec::Decoder;
-use tokio_util::codec::Encoder;
+use asynchronous_codec::{Decoder, Encoder};
 
 use super::varint::BufMutExt;
 use super::varint::ReadExt;
@@ -215,9 +214,10 @@ impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Decoder
     }
 }
 
-impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Encoder<VoicePacket<EncodeDst>>
+impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Encoder
     for VoiceCodec<EncodeDst, DecodeDst>
 {
+    type Item = VoicePacket<EncodeDst>;
     type Error = io::Error; // never
 
     fn encode(

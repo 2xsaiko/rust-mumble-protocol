@@ -1,11 +1,12 @@
 use argparse::ArgumentParser;
 use argparse::Store;
 use argparse::StoreTrue;
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures::channel::oneshot;
 use futures::join;
 use futures::StreamExt;
 use futures::SinkExt;
+use asynchronous_codec::{Decoder, Encoder};
 use mumble_protocol::control::msgs;
 use mumble_protocol::control::ClientControlCodec;
 use mumble_protocol::control::ControlPacket;
@@ -17,11 +18,9 @@ use std::convert::TryInto;
 use std::net::Ipv6Addr;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
-use tokio::net::TcpStream;
-use tokio::net::UdpSocket;
-use tokio_native_tls::TlsConnector;
-use tokio_util::codec::Decoder;
-use tokio_util::udp::UdpFramed;
+use async_native_tls::TlsConnector;
+use async_std::net::{UdpSocket, TcpStream};
+use asynchronous_codec::Framed;
 
 async fn connect(
     server_addr: SocketAddr,
@@ -38,12 +37,9 @@ async fn connect(
     println!("TCP connected..");
 
     // Wrap the connection in TLS
-    let mut builder = native_tls::TlsConnector::builder();
-    builder.danger_accept_invalid_certs(accept_invalid_cert);
-    let connector: TlsConnector = builder
-        .build()
-        .expect("Failed to create TLS connector")
-        .into();
+    let connector = TlsConnector::new()
+        .danger_accept_invalid_certs(accept_invalid_cert)
+        .use_sni(true);
     let tls_stream = connector
         .connect(&server_host, stream)
         .await
@@ -51,7 +47,7 @@ async fn connect(
     println!("TLS connected..");
 
     // Wrap the TLS stream with Mumble's client-side control-channel codec
-    let (mut sink, mut stream) = ClientControlCodec::new().framed(tls_stream).split();
+    let (mut sink, mut stream) = Framed::new(tls_stream, ClientControlCodec::new()).split();
 
     // Handshake (omitting `Version` message for brevity)
     let mut msg = msgs::Authenticate::new();
@@ -115,41 +111,45 @@ async fn handle_udp(
     server_addr: SocketAddr,
     crypt_state: oneshot::Receiver<ClientCryptState>,
 ) {
+    let mut recv_buf = [0_u8; 1024];
+
     // Bind UDP socket
     let udp_socket = UdpSocket::bind((Ipv6Addr::from(0u128), 0u16))
         .await
         .expect("Failed to bind UDP socket");
 
     // Wait for initial CryptState
-    let crypt_state = match crypt_state.await {
+    let mut crypt_state = match crypt_state.await {
         Ok(crypt_state) => crypt_state,
         // disconnected before we received the CryptSetup packet, oh well
         Err(_) => return,
     };
     println!("UDP ready!");
 
-    // Wrap the raw UDP packets in Mumble's crypto and voice codec (CryptState does both)
-    let (mut sink, mut source) = UdpFramed::new(udp_socket, crypt_state).split();
+    let mut buf = BytesMut::with_capacity(1024);
+    crypt_state.encode(VoicePacket::Audio {
+        _dst: std::marker::PhantomData,
+        target: 0,
+        session_id: (),
+        seq_num: 0,
+        payload: VoicePacketPayload::Opus(Bytes::from([0u8; 128].as_ref()), true),
+        position_info: None,
+    }, &mut buf).unwrap();
 
     // Note: A normal application would also send periodic Ping packets, and its own audio
     //       via UDP. We instead trick the server into accepting us by sending it one
     //       dummy voice packet.
-    sink.send((
-        VoicePacket::Audio {
-            _dst: std::marker::PhantomData,
-            target: 0,
-            session_id: (),
-            seq_num: 0,
-            payload: VoicePacketPayload::Opus(Bytes::from([0u8; 128].as_ref()), true),
-            position_info: None,
-        },
-        server_addr,
-    )).await.unwrap();
+    udp_socket.send_to(&buf.to_vec(), server_addr).await.unwrap();
 
     // Handle incoming UDP packets
-    while let Some(packet) = source.next().await {
-        let (packet, src_addr) = match packet {
-            Ok(packet) => packet,
+    while let Ok((num_read, src_addr)) = udp_socket.recv_from(&mut recv_buf).await {
+        let packet = crypt_state.decode(&mut BytesMut::from(&recv_buf[..num_read]));
+        let packet = match packet {
+            Ok(Some(packet)) => packet,
+            Ok(None) => {
+                eprintln!("Problem decoding packet");
+                continue;
+            },
             Err(err) => {
                 eprintln!("Got an invalid UDP packet: {}", err);
                 // To be expected, considering this is the internet, just ignore it
@@ -177,13 +177,14 @@ async fn handle_udp(
                     payload,
                     position_info,
                 };
-                sink.send((reply, src_addr)).await.unwrap();
+                crypt_state.encode(reply, &mut buf).unwrap();
+                udp_socket.send_to(&buf.to_vec(), src_addr).await.unwrap();
             }
         }
     }
 }
 
-#[tokio::main]
+#[async_std::main]
 async fn main() {
     // Handle command line arguments
     let mut server_host = "".to_string();

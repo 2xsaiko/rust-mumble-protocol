@@ -5,8 +5,7 @@ use openssl::memcmp;
 use openssl::rand::rand_bytes;
 use std::convert::TryInto;
 use std::io;
-use tokio_util::codec::Decoder;
-use tokio_util::codec::Encoder;
+use asynchronous_codec::{Decoder, Encoder};
 
 use crate::voice::Clientbound;
 use crate::voice::Serverbound;
@@ -351,9 +350,10 @@ impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Decoder
     }
 }
 
-impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Encoder<VoicePacket<EncodeDst>>
+impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Encoder
     for CryptState<EncodeDst, DecodeDst>
 {
+    type Item = VoicePacket<EncodeDst>;
     type Error = io::Error; // never
 
     fn encode(

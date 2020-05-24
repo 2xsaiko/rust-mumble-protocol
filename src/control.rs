@@ -11,8 +11,7 @@ use std::convert::TryInto;
 use std::io;
 use std::io::Cursor;
 use std::marker::PhantomData;
-use tokio_util::codec::Decoder;
-use tokio_util::codec::Encoder;
+use asynchronous_codec::{Encoder, Decoder};
 
 use crate::voice::Clientbound;
 use crate::voice::Serverbound;
@@ -86,7 +85,8 @@ impl Decoder for RawControlCodec {
     }
 }
 
-impl Encoder<RawControlPacket> for RawControlCodec {
+impl Encoder for RawControlCodec {
+    type Item = RawControlPacket;
     type Error = io::Error;
 
     fn encode(&mut self, item: RawControlPacket, dst: &mut BytesMut) -> Result<(), io::Error> {
@@ -151,9 +151,10 @@ impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Decoder
     }
 }
 
-impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Encoder<ControlPacket<EncodeDst>>
+impl<EncodeDst: VoicePacketDst, DecodeDst: VoicePacketDst> Encoder
     for ControlCodec<EncodeDst, DecodeDst>
 {
+    type Item = ControlPacket<EncodeDst>;
     type Error = io::Error;
 
     fn encode(
