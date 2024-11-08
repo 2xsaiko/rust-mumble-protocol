@@ -1,5 +1,6 @@
 use argparse::ArgumentParser;
 use argparse::Store;
+use argparse::StoreOption;
 use argparse::StoreTrue;
 use bytes::Bytes;
 use futures::channel::oneshot;
@@ -27,6 +28,7 @@ async fn connect(
     server_addr: SocketAddr,
     server_host: String,
     user_name: String,
+    password: Option<String>,
     accept_invalid_cert: bool,
     crypt_state_sender: oneshot::Sender<ClientCryptState>,
 ) {
@@ -56,6 +58,9 @@ async fn connect(
     // Handshake (omitting `Version` message for brevity)
     let mut msg = msgs::Authenticate::new();
     msg.set_username(user_name);
+    if let Some(password) = password {
+        msg.set_password(password);
+    }
     msg.set_opus(true);
     sink.send(msg.into()).await.unwrap();
 
@@ -189,6 +194,7 @@ async fn main() {
     let mut server_host = "".to_string();
     let mut server_port = 64738u16;
     let mut user_name = "EchoBot".to_string();
+    let mut password = None;
     let mut accept_invalid_cert = false;
     {
         let mut ap = ArgumentParser::new();
@@ -200,6 +206,8 @@ async fn main() {
             .add_option(&["--port"], Store, "Port of mumble server");
         ap.refer(&mut user_name)
             .add_option(&["--username"], Store, "User name used to connect");
+        ap.refer(&mut password)
+            .add_option(&["--password"], StoreOption, "Server password used to connect");
         ap.refer(&mut accept_invalid_cert).add_option(
             &["--accept-invalid-cert"],
             StoreTrue,
@@ -223,6 +231,7 @@ async fn main() {
             server_addr,
             server_host,
             user_name,
+            password,
             accept_invalid_cert,
             crypt_state_sender,
         ),
