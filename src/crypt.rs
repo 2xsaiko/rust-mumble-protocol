@@ -1,6 +1,5 @@
 //! Implementation of the cryptography used for Mumble's voice channel
 
-use std::convert::TryInto;
 use std::io;
 
 use bytes::BytesMut;

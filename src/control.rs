@@ -1,7 +1,5 @@
 //! Control channel messages and codecs
 
-use std::convert::TryFrom;
-use std::convert::TryInto;
 use std::io;
 use std::io::Cursor;
 use std::marker::PhantomData;

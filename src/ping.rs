@@ -8,9 +8,6 @@
 //! Both packets are of fixed size and can be converted to/from `u8` arrays/slices via
 //! the respective `From`/`TryFrom` impls.
 
-use std::convert::TryFrom;
-use std::convert::TryInto;
-
 /// A ping packet sent to the server.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PingPacket {

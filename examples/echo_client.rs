@@ -12,8 +12,6 @@ use mumble_protocol::control::ControlPacket;
 use mumble_protocol::crypt::ClientCryptState;
 use mumble_protocol::voice::VoicePacket;
 use mumble_protocol::voice::VoicePacketPayload;
-use std::convert::Into;
-use std::convert::TryInto;
 use std::net::Ipv6Addr;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
