@@ -10,7 +10,7 @@ use bytes::Buf;
 use bytes::BufMut;
 use bytes::Bytes;
 use bytes::BytesMut;
-use protobuf::error::ProtobufError;
+use protobuf::Error as ProtobufError;
 use protobuf::Message;
 
 use crate::voice::Clientbound;
@@ -337,10 +337,10 @@ macro_rules! define_packet_from {
                 if packet.id == msgs::id::$name {
                     Self::try_from(packet.bytes)
                 } else {
-                    Err(ProtobufError::IoError(io::Error::new(
+                    Err(io::Error::new(
                         io::ErrorKind::Other,
                         concat!("expected packet of type ", stringify!($name)),
-                    )))
+                    ).into())
                 }
             }
         }

@@ -70,25 +70,25 @@ async fn connect(
             ControlPacket::TextMessage(mut msg) => {
                 println!(
                     "Got message from user with session ID {}: {}",
-                    msg.get_actor(),
-                    msg.get_message()
+                    msg.actor(),
+                    msg.message()
                 );
                 // Send reply back to server
                 let mut response = msgs::TextMessage::new();
-                response.mut_session().push(msg.get_actor());
+                response.mut_session().push(msg.actor());
                 response.set_message(msg.take_message());
                 sink.send(response.into()).await.unwrap();
             }
             ControlPacket::CryptSetup(msg) => {
                 // Wait until we're fully connected before initiating UDP voice
                 crypt_state = Some(ClientCryptState::new_from(
-                    msg.get_key()
+                    msg.key()
                         .try_into()
                         .expect("Server sent private key with incorrect size"),
-                    msg.get_client_nonce()
+                    msg.client_nonce()
                         .try_into()
                         .expect("Server sent client_nonce with incorrect size"),
-                    msg.get_server_nonce()
+                    msg.server_nonce()
                         .try_into()
                         .expect("Server sent server_nonce with incorrect size"),
                 ));

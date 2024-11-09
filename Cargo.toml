@@ -16,14 +16,14 @@ webrtc-extensions = []
 tokio-codec = ["tokio-util"]
 
 [build-dependencies]
-protobuf-codegen-pure = "2.25"
+protobuf-codegen = "3"
 
 [dependencies]
 bytes = "1.0"
 byteorder = "1"
-tokio-util = { version = "0.6", features = ["codec"], optional = true }
-asynchronous-codec = { version = "0.6.0", optional = true }
-protobuf = "2"
+tokio-util = { version = "0.7", features = ["codec"], optional = true }
+asynchronous-codec = { version = "0.7", optional = true }
+protobuf = "3"
 openssl = { version = "0.10", optional = true }
 cfg-if = "1.0.0"
 
@@ -32,5 +32,5 @@ argparse = "0.2"
 futures = "0.3"
 native-tls = "0.2"
 tokio = { version = "1.0", features = ["full"] }
-tokio-util = { version = "0.6", features = ["codec", "net"] }
+tokio-util = { version = "0.7", features = ["codec", "net"] }
 tokio-native-tls = "0.3"
